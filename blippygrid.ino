@@ -126,16 +126,16 @@ void loop() {
 
   if (heldGridIndex != -1) {
     int cHue = analogRead(A4);
-    int cValue = analogRead(A5);
-    int cSaturation = analogRead(A6);
+    int cSaturation = analogRead(A5);
+    int cValue = analogRead(A6);
     int cEffect = analogRead(A7);
+
+    uint32_t color = Adafruit_NeoPixel::ColorHSV(cHue * 16, cSaturation/16, cValue/16);
+    strip.setPixelColor(heldGridIndex, color);
+    
     Serial.print(heldGridIndex);
-    Serial.print(" gets hue ");
-    Serial.print(cHue);
-    Serial.print(" value ");
-    Serial.print(cValue);
-    Serial.print(" saturation ");
-    Serial.print(cSaturation);
+    Serial.print(" gets color ");
+    Serial.print(color, HEX);
     Serial.print(" effect ");
     Serial.println(cEffect);
   }
