@@ -18,6 +18,17 @@ typedef enum {
   CategCount
 } ButtonCateg;
 
+typedef enum {
+  FuncNone,
+  FuncSave,
+  FuncLoad
+} Func;
+const char *funcName[] = {"None", "Save", "Load"};
+
+Func currentFunc;
+
+int heldGridIndex = -1;
+
 AceButton buttons[CategCount][16];
 AceButton *buttonPtrs[CategCount][16] = {
   {&buttons[0][0], &buttons[0][1], &buttons[0][2], &buttons[0][3], &buttons[0][4], &buttons[0][5], &buttons[0][6], &buttons[0][7], &buttons[0][8], &buttons[0][9], &buttons[0][10], &buttons[0][11], &buttons[0][12], &buttons[0][13], &buttons[0][14], &buttons[0][15]},
@@ -49,6 +60,7 @@ Adafruit_NeoPixel strip(ledCount, ledPin, NEO_GRB + NEO_KHZ800);
 
 void gridEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
 void funcEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
+void slotEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
 
 void setup() 
 {
@@ -67,7 +79,7 @@ void setup()
   buttonConfigs[2]->setEventHandler(gridEvent);
   buttonConfigs[3]->setEventHandler(gridEvent);
   buttonConfigs[4]->setEventHandler(funcEvent);
-  buttonConfigs[5]->setEventHandler(funcEvent);
+  buttonConfigs[5]->setEventHandler(slotEvent);
 }
 
 #ifdef CALIBRATE
@@ -111,6 +123,22 @@ void loop() {
   for(int c = 0; c < CategCount; c++) {
     buttonConfigs[c]->checkButtons();
   }
+
+  if (heldGridIndex != -1) {
+    int cHue = analogRead(A4);
+    int cValue = analogRead(A5);
+    int cSaturation = analogRead(A6);
+    int cEffect = analogRead(A7);
+    Serial.print(heldGridIndex);
+    Serial.print(" gets hue ");
+    Serial.print(cHue);
+    Serial.print(" value ");
+    Serial.print(cValue);
+    Serial.print(" saturation ");
+    Serial.print(cSaturation);
+    Serial.print(" effect ");
+    Serial.println(cEffect);
+  }
   strip.show();
 }
 #endif
@@ -121,22 +149,30 @@ void gridEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
   int indexOfGroup = button->getId();
   int indexWithinGroup = button->getPin()-1;
   int indexInGrid = indexOfGroup*16 + indexWithinGroup;
+
   if(buttonState == 1) {
-    Serial.print(indexInGrid);
-    Serial.println(" Pressed");
+    heldGridIndex = indexInGrid;
   } else {
-    Serial.print(indexInGrid);
-    Serial.println(" Released");
+    heldGridIndex = -1;
   }
 }
 
 void funcEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  Serial.print(F("funcEvent(): "));
-  Serial.print(F("virtualPin: "));
-  Serial.print(button->getPin());
-  Serial.print(F("; eventType: "));
-  Serial.print(eventType);
-  Serial.print(F("; buttonState: "));
-  Serial.println(buttonState);
+  if(buttonState == 0) {
+    currentFunc = FuncNone;
+    return;
+  } else {
+    currentFunc = (Func)button->getPin();
+  }
+}
+
+void slotEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
+{
+  if(currentFunc == FuncNone || buttonState == 0) return;
+  int slot = button->getPin()-1;
+  
+  Serial.print(funcName[currentFunc]);
+  Serial.print(" to slot ");
+  Serial.println(slot+1);
 }
