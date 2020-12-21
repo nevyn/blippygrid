@@ -5,6 +5,8 @@ using namespace ace_button;
 int ledPin = 21;
 int ledCount = 64;
 
+//#define CALIBRATE
+
 typedef enum {
   CategRow12,
   CategRow34,
@@ -25,25 +27,28 @@ AceButton *buttonPtrs[CategCount][16] = {
   {&buttons[4][0], &buttons[4][1], &buttons[4][2], &buttons[4][3], &buttons[4][4], &buttons[4][5], &buttons[4][6], &buttons[4][7], &buttons[4][8], &buttons[4][9], &buttons[4][10], &buttons[4][11], &buttons[4][12], &buttons[4][13], &buttons[4][14], &buttons[4][15]},
   {&buttons[5][0], &buttons[5][1], &buttons[5][2], &buttons[5][3], &buttons[5][4], &buttons[5][5], &buttons[5][6], &buttons[5][7], &buttons[5][8], &buttons[5][9], &buttons[5][10], &buttons[5][11], &buttons[5][12], &buttons[5][13], &buttons[5][14], &buttons[5][15]},
 };
-uint16_t buttonLevels[CategCount][17] = {
-  {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500},
-  {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500},
-  {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500},
-  {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500},
-  {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500},
-  {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500}
+uint16_t buttonLevels[CategCount][18] = {
+  {0, 144, 185, 322, 505, 692, 725, 756, 800, 1040, 1420, 2047, 2260, 3155, 3440, 3850, 4095, 4100},
+  {0, 370, 540, 712, 920, 1078, 1253, 1480, 1780, 1981, 2226, 2527, 2783, 3119, 3605, 3987, 4095, 4100},
+  {0, 370, 540, 712, 920, 1078, 1253, 1480, 1780, 1981, 2226, 2527, 2783, 3119, 3605, 3987, 4095, 4100},
+  {0, 370, 540, 712, 920, 1078, 1253, 1480, 1780, 1981, 2226, 2527, 2783, 3119, 3605, 3987, 4095, 4100},
+  {0, 1180, 4095, 4100},
+  {0, 1350, 2350, 3450, 4095, 4100}
 };
 
-LadderButtonConfig row12(A0, 17, buttonLevels[0], 16, buttonPtrs[0], LOW);
-LadderButtonConfig row34(A1, 17, buttonLevels[1], 16, buttonPtrs[1], LOW);
-LadderButtonConfig row56(A2, 17, buttonLevels[2], 16, buttonPtrs[2], LOW);
-LadderButtonConfig row78(A3, 17, buttonLevels[3], 16, buttonPtrs[3], LOW);
-LadderButtonConfig funcs(A8, 3, buttonLevels[4], 2, buttonPtrs[4], LOW);
-LadderButtonConfig slots(A9, 5, buttonLevels[5], 4, buttonPtrs[5], LOW);
+LadderButtonConfig row12(A0, 18, buttonLevels[0], 16, buttonPtrs[0], LOW);
+LadderButtonConfig row34(A1, 18, buttonLevels[1], 16, buttonPtrs[1], LOW);
+LadderButtonConfig row56(A2, 18, buttonLevels[2], 16, buttonPtrs[2], LOW);
+LadderButtonConfig row78(A3, 18, buttonLevels[3], 16, buttonPtrs[3], LOW);
+LadderButtonConfig funcs(A8, 4, buttonLevels[4], 2, buttonPtrs[4], LOW);
+LadderButtonConfig slots(A9, 6, buttonLevels[5], 4, buttonPtrs[5], LOW);
 LadderButtonConfig *buttonConfigs[CategCount] = {&row12, &row34, &row56, &row78, &funcs, &slots};
 
 
 Adafruit_NeoPixel strip(ledCount, ledPin, NEO_GRB + NEO_KHZ800);
+
+void gridEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
+void funcEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
 
 void setup() 
 {
@@ -54,9 +59,15 @@ void setup()
 
   for(int c = 0; c < CategCount; c++) {
     for(int b = 0; b < 16; b++) {
-      buttons[c][b].init(buttonConfigs[c], b);
+      buttons[c][b].init(buttonConfigs[c], b+1, LOW, c);
     }
   }
+  buttonConfigs[0]->setEventHandler(gridEvent);
+  buttonConfigs[1]->setEventHandler(gridEvent);
+  buttonConfigs[2]->setEventHandler(gridEvent);
+  buttonConfigs[3]->setEventHandler(gridEvent);
+  buttonConfigs[4]->setEventHandler(funcEvent);
+  buttonConfigs[5]->setEventHandler(funcEvent);
 }
 
 #ifdef CALIBRATE
@@ -103,3 +114,29 @@ void loop() {
   strip.show();
 }
 #endif
+
+
+void gridEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
+{
+  int indexOfGroup = button->getId();
+  int indexWithinGroup = button->getPin()-1;
+  int indexInGrid = indexOfGroup*16 + indexWithinGroup;
+  if(buttonState == 1) {
+    Serial.print(indexInGrid);
+    Serial.println(" Pressed");
+  } else {
+    Serial.print(indexInGrid);
+    Serial.println(" Released");
+  }
+}
+
+void funcEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
+{
+  Serial.print(F("funcEvent(): "));
+  Serial.print(F("virtualPin: "));
+  Serial.print(button->getPin());
+  Serial.print(F("; eventType: "));
+  Serial.print(eventType);
+  Serial.print(F("; buttonState: "));
+  Serial.println(buttonState);
+}
