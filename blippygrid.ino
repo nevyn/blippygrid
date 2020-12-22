@@ -39,8 +39,8 @@ typedef enum {
 
 // Global state
 const char *funcName[] = {"None", "Save", "Load"};
-const char *saveSlotName[] = {"pixels-00.bin", "pixels-01.bin", "pixels-02.bin", "pixels-03.bin"};
-const char *animationName[] = {"animation-none.bin", "animation-save.bin", "animation-load.bin"};
+const char *saveSlotName[] = {"/pixels-00.bin", "/pixels-01.bin", "/pixels-02.bin", "/pixels-03.bin"};
+const char *animationName[] = {"/animation-none.bin", "/animation-save.bin", "/animation-load.bin"};
 const int saveSlotCount = 4;
 Func currentFunc;
 
@@ -50,6 +50,7 @@ int heldGridIndex = -1;
 
 static const int ledPin = 21;
 static const int ledCount = 64;
+static const int pixelsByteSize = sizeof(Pixel)*ledCount;
 
 AceButton buttons[CategCount][16];
 AceButton *buttonPtrs[CategCount][16] = {
@@ -131,8 +132,12 @@ void loop() {
 
 void setup() 
 {
-  Serial.begin(9600);           //Serial monitor used to determine limit values
-  SPIFFS.begin(true)
+  Serial.begin(9600); // for debugging state
+  Serial.println("Hello! This is blippygrid by hello@nevyn.dev");
+  
+  bool fsOk = SPIFFS.begin(true);
+  Serial.print("Filesystem status ");
+  Serial.println(fsOk);
   
   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();            // Turn OFF all pixels ASAP
@@ -184,11 +189,29 @@ void loop()
 }
 #endif
 
+uint32_t interpolateColors(uint32_t colorA, float aFrac, uint32_t colorB)
+{
+  float bFrac = 1.0 - aFrac;
+  int rA = colorA >> 16 & 0xff;
+  int rB = colorB >> 16 & 0xff;
+  int gA = colorA >> 8 & 0xff;
+  int gB = colorB >> 8 & 0xff;
+  int bA = colorA & 0xff;
+  int bB = colorB & 0xff;
+
+  int r = rA * aFrac + rB * bFrac;
+  int g = gA * aFrac + gB * bFrac;
+  int b = bA * aFrac + bB * bFrac;
+
+  uint32_t ret = ((uint32_t)r << 16) | ((uint32_t)g <<  8) | b;
+  return ret;
+}
+
 void playAnimation(Animation anim)
 {
   const char *filename = animationName[(int)anim];  
   File file = SPIFFS.open(filename, FILE_READ);
-  file.read(animPixels, sizeof(Pixel)*ledCount);
+  file.read((uint8_t*)animPixels, pixelsByteSize);
   file.close();
   
   for(int i = 0; i < 100; i++) {
@@ -197,7 +220,7 @@ void playAnimation(Animation anim)
     
     for(int i = 0; i < ledCount; i++)
     {
-      strip.setPixelColor(i, pixels[i].color * pFrac + animPixels[i].color * aFrac);
+      strip.setPixelColor(i, interpolateColors(pixels[i].color, pFrac, animPixels[i].color));
     }
     
     strip.show();
@@ -243,12 +266,18 @@ void slotEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
   const char *filename = saveSlotName[slot];  
   if(currentFunc == FuncSave) {
     File file = SPIFFS.open(filename, FILE_WRITE);
-    file.write(pixels, sizeof(Pixel)*ledCount);
+    int written = file.write((uint8_t*)pixels, pixelsByteSize);
     file.close();
+    Serial.print("Wrote ");
+    Serial.print(written);
+    Serial.print(" of ");
+    Serial.print(pixelsByteSize);
+    Serial.print(" bytes to ");
+    Serial.println(filename);
     playAnimation(AnimSave);
   } else if(currentFunc == FuncLoad) {
     File file = SPIFFS.open(filename, FILE_READ);
-    file.read(pixels, sizeof(Pixel)*ledCount);
+    file.read((uint8_t*)pixels, pixelsByteSize);
     file.close();
     playAnimation(AnimLoad);
   }
