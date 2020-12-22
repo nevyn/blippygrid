@@ -29,13 +29,23 @@ typedef struct {
   uint32_t reserved;  
 } Pixel;
 
+typedef enum {
+  AnimNone,
+  AnimSave,
+  AnimLoad,
+  
+  AnimCount
+} Animation;
+
 // Global state
 const char *funcName[] = {"None", "Save", "Load"};
 const char *saveSlotName[] = {"pixels-00.bin", "pixels-01.bin", "pixels-02.bin", "pixels-03.bin"};
+const char *animationName[] = {"animation-none.bin", "animation-save.bin", "animation-load.bin"};
 const int saveSlotCount = 4;
 Func currentFunc;
 
 Pixel pixels[64];
+Pixel animPixels[64];
 int heldGridIndex = -1;
 
 static const int ledPin = 21;
@@ -74,29 +84,13 @@ void gridEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
 void funcEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
 void slotEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
 
+#ifdef CALIBRATE
+
 void setup() 
 {
-  Serial.begin(9600);           //Serial monitor used to determine limit values
-  SPIFFS.begin(true)
-  
-  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-  strip.show();            // Turn OFF all pixels ASAP
-  strip.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
-
-  for(int c = 0; c < CategCount; c++) {
-    for(int b = 0; b < 16; b++) {
-      buttons[c][b].init(buttonConfigs[c], b+1, LOW, c);
-    }
-  }
-  buttonConfigs[0]->setEventHandler(gridEvent);
-  buttonConfigs[1]->setEventHandler(gridEvent);
-  buttonConfigs[2]->setEventHandler(gridEvent);
-  buttonConfigs[3]->setEventHandler(gridEvent);
-  buttonConfigs[4]->setEventHandler(funcEvent);
-  buttonConfigs[5]->setEventHandler(slotEvent);
+  Serial.begin(9600)
 }
 
-#ifdef CALIBRATE
 void loop() {
   delay(100);
   int buttonValue1 = analogRead(A0);
@@ -132,7 +126,31 @@ void loop() {
   Serial.print(" ");
   Serial.println(saveSlotButtonValue);
 }
+
 #else
+
+void setup() 
+{
+  Serial.begin(9600);           //Serial monitor used to determine limit values
+  SPIFFS.begin(true)
+  
+  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+  strip.show();            // Turn OFF all pixels ASAP
+  strip.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
+
+  for(int c = 0; c < CategCount; c++) {
+    for(int b = 0; b < 16; b++) {
+      buttons[c][b].init(buttonConfigs[c], b+1, LOW, c);
+    }
+  }
+  buttonConfigs[0]->setEventHandler(gridEvent);
+  buttonConfigs[1]->setEventHandler(gridEvent);
+  buttonConfigs[2]->setEventHandler(gridEvent);
+  buttonConfigs[3]->setEventHandler(gridEvent);
+  buttonConfigs[4]->setEventHandler(funcEvent);
+  buttonConfigs[5]->setEventHandler(slotEvent);
+}
+
 void loop()
 {
   for(int c = 0; c < CategCount; c++)
@@ -165,6 +183,27 @@ void loop()
   strip.show();
 }
 #endif
+
+void playAnimation(Animation anim)
+{
+  const char *filename = animationName[(int)anim];  
+  File file = SPIFFS.open(filename, FILE_READ);
+  file.read(animPixels, sizeof(Pixel)*ledCount);
+  file.close();
+  
+  for(int i = 0; i < 100; i++) {
+    float pFrac = i/100.0;
+    float aFrac = 1.0 + pFrac;
+    
+    for(int i = 0; i < ledCount; i++)
+    {
+      strip.setPixelColor(i, pixels[i].color * pFrac + animPixels[i].color * aFrac);
+    }
+    
+    strip.show();
+    delay(10);
+  }
+}
 
 
 void gridEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
@@ -206,9 +245,11 @@ void slotEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
     File file = SPIFFS.open(filename, FILE_WRITE);
     file.write(pixels, sizeof(Pixel)*ledCount);
     file.close();
+    playAnimation(AnimSave);
   } else if(currentFunc == FuncLoad) {
     File file = SPIFFS.open(filename, FILE_READ);
     file.read(pixels, sizeof(Pixel)*ledCount);
     file.close();
+    playAnimation(AnimLoad);
   }
 }
