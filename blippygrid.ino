@@ -1,12 +1,11 @@
 #include <Adafruit_NeoPixel.h>
 #include <AceButton.h>
+#include <SPIFFS.h>
 using namespace ace_button;
-
-int ledPin = 21;
-int ledCount = 64;
 
 //#define CALIBRATE
 
+// Global types
 typedef enum {
   CategRow12,
   CategRow34,
@@ -23,11 +22,24 @@ typedef enum {
   FuncSave,
   FuncLoad
 } Func;
-const char *funcName[] = {"None", "Save", "Load"};
 
+typedef struct {
+  uint32_t color;
+  uint16_t effect;
+  uint32_t reserved;  
+} Pixel;
+
+// Global state
+const char *funcName[] = {"None", "Save", "Load"};
+const char *saveSlotName[] = {"pixels-00.bin", "pixels-01.bin", "pixels-02.bin", "pixels-03.bin"};
+const int saveSlotCount = 4;
 Func currentFunc;
 
+Pixel pixels[64];
 int heldGridIndex = -1;
+
+static const int ledPin = 21;
+static const int ledCount = 64;
 
 AceButton buttons[CategCount][16];
 AceButton *buttonPtrs[CategCount][16] = {
@@ -65,6 +77,8 @@ void slotEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
 void setup() 
 {
   Serial.begin(9600);           //Serial monitor used to determine limit values
+  SPIFFS.begin(true)
+  
   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();            // Turn OFF all pixels ASAP
   strip.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
@@ -119,25 +133,34 @@ void loop() {
   Serial.println(saveSlotButtonValue);
 }
 #else
-void loop() {
-  for(int c = 0; c < CategCount; c++) {
+void loop()
+{
+  for(int c = 0; c < CategCount; c++)
+  {
     buttonConfigs[c]->checkButtons();
   }
 
-  if (heldGridIndex != -1) {
+  if (heldGridIndex != -1)
+  {
     int cHue = analogRead(A4);
     int cSaturation = analogRead(A5);
     int cValue = analogRead(A6);
     int cEffect = analogRead(A7);
 
     uint32_t color = Adafruit_NeoPixel::ColorHSV(cHue * 16, cSaturation/16, cValue/16);
-    strip.setPixelColor(heldGridIndex, color);
+    pixels[heldGridIndex].color = color;
+    pixels[heldGridIndex].effect = cEffect;
     
     Serial.print(heldGridIndex);
     Serial.print(" gets color ");
     Serial.print(color, HEX);
     Serial.print(" effect ");
     Serial.println(cEffect);
+  }
+  
+  for(int i = 0; i < ledCount; i++)
+  {
+    strip.setPixelColor(i, pixels[i].color);
   }
   strip.show();
 }
@@ -150,7 +173,8 @@ void gridEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
   int indexWithinGroup = button->getPin()-1;
   int indexInGrid = indexOfGroup*16 + indexWithinGroup;
 
-  if(buttonState == 1) {
+  if(buttonState == 1)
+  {
     heldGridIndex = indexInGrid;
   } else {
     heldGridIndex = -1;
@@ -159,7 +183,8 @@ void gridEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
 
 void funcEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
-  if(buttonState == 0) {
+  if(buttonState == 0)
+  {
     currentFunc = FuncNone;
     return;
   } else {
@@ -175,4 +200,15 @@ void slotEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
   Serial.print(funcName[currentFunc]);
   Serial.print(" to slot ");
   Serial.println(slot+1);
+
+  const char *filename = saveSlotName[slot];  
+  if(currentFunc == FuncSave) {
+    File file = SPIFFS.open(filename, FILE_WRITE);
+    file.write(pixels, sizeof(Pixel)*ledCount);
+    file.close();
+  } else if(currentFunc == FuncLoad) {
+    File file = SPIFFS.open(filename, FILE_READ);
+    file.read(pixels, sizeof(Pixel)*ledCount);
+    file.close();
+  }
 }
