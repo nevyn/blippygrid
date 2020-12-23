@@ -79,7 +79,7 @@ LadderButtonConfig slots(A9, 6, buttonLevels[5], 4, buttonPtrs[5], LOW);
 LadderButtonConfig *buttonConfigs[CategCount] = {&row12, &row34, &row56, &row78, &funcs, &slots};
 
 
-Adafruit_NeoPixel strip(ledCount, ledPin, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip(ledCount + 1, ledPin, NEO_GRB + NEO_KHZ800);
 
 void gridEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
 void funcEvent(AceButton* button, uint8_t eventType, uint8_t buttonState);
@@ -163,14 +163,14 @@ void loop()
     buttonConfigs[c]->checkButtons();
   }
 
+  int cHue = analogRead(A4);
+  int cSaturation = analogRead(A5);
+  int cValue = analogRead(A6);
+  int cEffect = analogRead(A7);
+  uint32_t color = Adafruit_NeoPixel::ColorHSV(cHue * 16, cSaturation/16, cValue/16);
+
   if (heldGridIndex != -1)
   {
-    int cHue = analogRead(A4);
-    int cSaturation = analogRead(A5);
-    int cValue = analogRead(A6);
-    int cEffect = analogRead(A7);
-
-    uint32_t color = Adafruit_NeoPixel::ColorHSV(cHue * 16, cSaturation/16, cValue/16);
     pixels[heldGridIndex].color = color;
     pixels[heldGridIndex].effect = cEffect;
     
@@ -185,6 +185,7 @@ void loop()
   {
     strip.setPixelColor(i, pixels[i].color);
   }
+  strip.setPixelColor(64, color);
   strip.show();
 }
 #endif
