@@ -142,7 +142,7 @@ void setup()
   
   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();            // Turn OFF all pixels ASAP
-  strip.setBrightness(255); // Set max brightness (255=max)
+  strip.setBrightness(192); // Set max brightness (255=max)
 
   for(int c = 0; c < CategCount; c++) {
     for(int b = 0; b < 16; b++) {
