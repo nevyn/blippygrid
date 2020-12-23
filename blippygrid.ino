@@ -169,8 +169,8 @@ void loop()
     buttonConfigs[c]->checkButtons();
   }
 
-  int cHue = analogRead(A4);
-  int cSaturation = analogRead(A5);
+  int cHue = analogRead(A5);
+  int cSaturation = analogRead(A4);
   int cValue = analogRead(A6);
   int cEffect = analogRead(A7);
   uint32_t color = Adafruit_NeoPixel::ColorHSV(cHue * 16, cSaturation/16, cValue/16);
