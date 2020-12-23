@@ -158,6 +158,10 @@ void setup()
   playAnimation(AnimBoot);
 }
 
+uint32_t applyEffect(float t, uint16_t effect, uint32_t c);
+
+float t = 0.0;
+
 void loop()
 {
   for(int c = 0; c < CategCount; c++)
@@ -185,10 +189,12 @@ void loop()
   
   for(int i = 0; i < ledCount; i++)
   {
-    strip.setPixelColor(i, pixels[i].color);
+    uint32_t effectiveColor = applyEffect(t, pixels[i].effect, pixels[i].color);
+    strip.setPixelColor(i, effectiveColor);
   }
-  strip.setPixelColor(64, color);
+  strip.setPixelColor(64, applyEffect(t, cEffect, color));
   strip.show();
+  t += 0.005;
 }
 #endif
 
@@ -210,12 +216,32 @@ uint32_t interpolateColors(uint32_t colorA, float aFrac, uint32_t colorB)
   return ret;
 }
 
+uint32_t fade(uint32_t colorA, float frac)
+{
+  int rA = colorA >> 16 & 0xff;
+  int gA = colorA >> 8 & 0xff;
+  int bA = colorA & 0xff;
+
+  int r = rA * frac;
+  int g = gA * frac;
+  int b = bA * frac;
+  uint32_t ret = ((uint32_t)r << 16) | ((uint32_t)g <<  8) | b;
+  return ret;
+}
+
 void playAnimation(Animation anim)
 {
   const char *filename = animationName[(int)anim];  
   File file = SPIFFS.open(filename, FILE_READ);
   file.read((uint8_t*)animPixels, pixelsByteSize);
   file.close();
+
+  for(int i = 0; i < ledCount; i++)
+  {
+    strip.setPixelColor(i, animPixels[i].color);
+  }
+  strip.show();
+  delay(500);
   
   for(int i = 0; i < 100; i++) {
     float pFrac = i/100.0;
@@ -228,6 +254,26 @@ void playAnimation(Animation anim)
     
     strip.show();
     delay(10);
+  }
+}
+
+uint32_t applyEffect(float t, uint16_t effect, uint32_t c)
+{
+  if(effect == 0)
+  {
+    return c;
+  }
+
+  float feffect4 = (float)effect / 1024.0;
+  float feffect = fmod(feffect4, 1.0);
+  if (effect < 1024) {
+    return fade(c, sin(t + feffect*4)/2.0 + 0.5);
+  } else if(effect < 2048) {
+    return fade(c, sin(t * (feffect*4+1))/2.0 + 0.5);
+  } else if(effect < 3096) {
+    return fmod(t/4.0, 1.0) < feffect ? c : 0;
+  } else {
+    return fmod(t/4.0, 1.0) > feffect ? c : 0;
   }
 }
 
