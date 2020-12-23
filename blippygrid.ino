@@ -278,11 +278,79 @@ uint32_t applyEffect(float t, uint16_t effect, uint32_t c)
 }
 
 
+
+///// -----
+
+
+String slotIndexToFilename(int slotIndex)
+{
+  String filename = "/pixels-";
+  filename += slotIndex;
+  filename += ".bin";
+
+  if(slotIndex > 63) {
+    filename = animationName[slotIndex-63];
+  }
+  return filename;
+}
+
+void save(int slotIndex)
+{
+  String filename = slotIndexToFilename(slotIndex);  
+  File file = SPIFFS.open(filename, FILE_WRITE);
+  int written = file.write((uint8_t*)pixels, pixelsByteSize);
+  file.close();
+  
+  Serial.print("Wrote ");
+  Serial.print(written);
+  Serial.print(" of ");
+  Serial.print(pixelsByteSize);
+  Serial.print(" bytes to ");
+  Serial.println(filename);
+  
+  playAnimation(AnimSave);
+}
+
+void load(int slotIndex)
+{
+  String filename = slotIndexToFilename(slotIndex);
+  File file = SPIFFS.open(filename, FILE_READ);
+  int readed = file.read((uint8_t*)pixels, pixelsByteSize);
+  file.close();
+
+  Serial.print("Read ");
+  Serial.print(readed);
+  Serial.print(" of ");
+  Serial.print(pixelsByteSize);
+  Serial.print(" bytes from ");
+  Serial.println(filename);
+  
+  playAnimation(AnimLoad);
+}
+
+///// -----
+
+
 void gridEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
   int indexOfGroup = button->getId();
   int indexWithinGroup = button->getPin()-1;
   int indexInGrid = indexOfGroup*16 + indexWithinGroup;
+
+  if(currentFunc != FuncNone && buttonState == 1) {
+    int slot = 4 + indexInGrid;
+    
+    Serial.print(funcName[currentFunc]);
+    Serial.print(" to slot ");
+    Serial.println(slot+1);
+  
+    if(currentFunc == FuncSave) {
+      save(slot);
+    } else if(currentFunc == FuncLoad) {
+      load(slot);
+    }
+    return;
+  }
 
   if(buttonState == 1)
   {
@@ -303,6 +371,7 @@ void funcEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
   }
 }
 
+
 void slotEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
 {
   if(currentFunc == FuncNone || buttonState == 0) return;
@@ -312,22 +381,9 @@ void slotEvent(AceButton* button, uint8_t eventType, uint8_t buttonState)
   Serial.print(" to slot ");
   Serial.println(slot+1);
 
-  const char *filename = saveSlotName[slot];  
   if(currentFunc == FuncSave) {
-    File file = SPIFFS.open(filename, FILE_WRITE);
-    int written = file.write((uint8_t*)pixels, pixelsByteSize);
-    file.close();
-    Serial.print("Wrote ");
-    Serial.print(written);
-    Serial.print(" of ");
-    Serial.print(pixelsByteSize);
-    Serial.print(" bytes to ");
-    Serial.println(filename);
-    playAnimation(AnimSave);
+    save(slot);
   } else if(currentFunc == FuncLoad) {
-    File file = SPIFFS.open(filename, FILE_READ);
-    file.read((uint8_t*)pixels, pixelsByteSize);
-    file.close();
-    playAnimation(AnimLoad);
+    load(slot);
   }
 }
