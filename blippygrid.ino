@@ -316,6 +316,9 @@ void load(int slotIndex)
   String filename = slotIndexToFilename(slotIndex);
   File file = SPIFFS.open(filename, FILE_READ);
   int readed = file.read((uint8_t*)pixels, pixelsByteSize);
+  if(readed == 0) {
+    memset((uint8_t*)pixels, 0, pixelsByteSize);
+  }
   file.close();
 
   Serial.print("Read ");
