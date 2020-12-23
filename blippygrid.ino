@@ -33,6 +33,7 @@ typedef enum {
   AnimNone,
   AnimSave,
   AnimLoad,
+  AnimBoot,
   
   AnimCount
 } Animation;
@@ -40,7 +41,7 @@ typedef enum {
 // Global state
 const char *funcName[] = {"None", "Save", "Load"};
 const char *saveSlotName[] = {"/pixels-00.bin", "/pixels-01.bin", "/pixels-02.bin", "/pixels-03.bin"};
-const char *animationName[] = {"/animation-none.bin", "/animation-save.bin", "/animation-load.bin"};
+const char *animationName[] = {"/animation-none.bin", "/animation-save.bin", "/animation-load.bin", "/animation-boot.bin"};
 const int saveSlotCount = 4;
 Func currentFunc;
 
@@ -154,6 +155,7 @@ void setup()
   buttonConfigs[3]->setEventHandler(gridEvent);
   buttonConfigs[4]->setEventHandler(funcEvent);
   buttonConfigs[5]->setEventHandler(slotEvent);
+  playAnimation(AnimBoot);
 }
 
 void loop()
